@@ -1,56 +1,79 @@
+import json
+import os
 import socket
 import threading
-import os
+from pathlib import Path
 
 # Configuration
 HOST = '127.0.0.1'
 PORT = 65432
-FILE_LIST = 'TCP_UDP_Data\\download_info.txt'
+CHUNK_SIZE = 1024 * 1024  # 1MB chunks
 
-def handle_client(conn, addr):
-    print(f'Connected by {addr}')
-    while True:
-        data = conn.recv(1024).decode()
-        if not data:
-            break
+class FileServer:
+    def __init__(self):
+        self.files_info = {}
+        self.load_files_info()
         
-        parts = data.split(maxsplit=1)
-        command = parts[0]
-        
-        if command == 'LIST':
-            with open(FILE_LIST, 'r') as f:
-                file_list = f.read()
-            conn.sendall(file_list.encode())
-        elif command == 'DOWNLOAD':
-            if len(parts) < 2:
-                print(f'Invalid command from {addr}: {data}')
-                continue
-            try:
-                filename, offset, chunk_size = parts[1].rsplit(' ', 2)
-                offset = int(offset)
-                chunk_size = int(chunk_size)
-            except ValueError:
-                print(f'Invalid command from {addr}: {data}')
-                continue
+    def load_files_info(self):
+        # Load available files and their sizes
+        files_dir = Path("server_files")
+        if not files_dir.exists():
+            files_dir.mkdir()
             
-            try:
-                with open(filename, 'rb') as f:
-                    f.seek(offset)
-                    chunk = f.read(chunk_size)
-                conn.sendall(chunk)
-            except FileNotFoundError:
-                print(f'File not found: {filename}')
-                conn.sendall(b'')
-    conn.close()
+        for file_path in files_dir.glob("*.*"):
+            self.files_info[file_path.name] = os.path.getsize(file_path)
+            
+        # Save to files.json
+        with open("files.json", "w") as f:
+            json.dump(self.files_info, f, indent=2)
 
-def start_server():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
-        s.listen()
-        print(f'Server listening on {HOST}:{PORT}')
+    def handle_client(self, conn, addr):
+        try:
+            while True:
+                # Get command from client
+                cmd = conn.recv(1024).decode()
+                if not cmd:
+                    break
+                
+                if cmd == "LIST":
+                    # Send file listing
+                    conn.sendall(json.dumps(self.files_info).encode())
+                    
+                elif cmd.startswith("GET"):
+                    # Format: GET filename offset length
+                    _, filename, offset, length = cmd.split()
+                    offset = int(offset)
+                    length = int(length)
+                    
+                    if filename not in self.files_info:
+                        conn.sendall(b"ERROR:File not found")
+                        continue
+                        
+                    # Send file chunk
+                    with open(f"server_files/{filename}", "rb") as f:
+                        f.seek(offset)
+                        data = f.read(length)
+                        conn.sendall(data)
+                        
+        except Exception as e:
+            print(f"Error handling client {addr}: {e}")
+        finally:
+            conn.close()
+
+    def start(self):
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.bind((HOST, PORT))
+        server.listen()
+        
+        print(f"Server listening on {HOST}:{PORT}")
+        
         while True:
-            conn, addr = s.accept()
-            threading.Thread(target=handle_client, args=(conn, addr)).start()
+            conn, addr = server.accept()
+            print(f"Connected by {addr}")
+            thread = threading.Thread(target=self.handle_client, args=(conn, addr))
+            thread.daemon = True
+            thread.start()
 
-if __name__ == '__main__':
-    start_server()
+if __name__ == "__main__":
+    server = FileServer()
+    server.start()

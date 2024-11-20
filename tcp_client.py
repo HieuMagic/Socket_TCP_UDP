@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 # Configuration
-HOST = '127.0.0.1'
+HOST = '192.168.31.76'
 PORT = 65432
 THREADS = 4
 CHECK_INTERVAL = 5  # seconds

@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 
 # Configuration
-HOST = '127.0.0.1'
+HOST = '192.168.31.76'
 PORT = 65432
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks
 
@@ -47,7 +47,7 @@ class FileServer:
             
     def load_files_info(self):
         # Load available files and their sizes
-        files_dir = Path("server_files")
+        files_dir = Path("TCP_UDP_Data")
         if not files_dir.exists():
             files_dir.mkdir()
             
@@ -85,7 +85,7 @@ class FileServer:
                     
                     print(f"Client {addr} downloading {filename} chunk {chunk_number+1}/{total_chunks}")
                     
-                    with open(f"server_files/{filename}", "rb") as f:
+                    with open(f"TCP_UDP_Data/{filename}", "rb") as f:
                         f.seek(offset)
                         data = f.read(length)
                         conn.sendall(data)

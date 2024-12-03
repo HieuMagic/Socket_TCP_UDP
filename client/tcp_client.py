@@ -31,21 +31,14 @@ class FileClient:
     def connect_to_server(self):
         try:
             if not self.socket:
-                print(f"Attempting to connect to {HOST}:{PORT}...")
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.connect((HOST, PORT))
                 self.socket.settimeout(1)
-                data = self.socket.recv(1024)
-                print(f"Received initial data: {len(data)} bytes")
-                self.available_files = json.loads(data.decode())
+                self.available_files = json.loads(self.socket.recv(1024).decode())
                 self.print_available_files()
-                print("Connection established successfully")
             return True
         except Exception as e:
-            print(f"Connection error (detailed): {type(e).__name__}: {str(e)}")
-            if self.socket:
-                self.socket.close()
-                self.socket = None
+            print(f"Connection error: {e}")
             return False
 
     def print_available_files(self):
@@ -56,13 +49,9 @@ class FileClient:
     def check_connection(self):
         try:
             with self.print_lock:
-                print("Sending PING...")
                 self.socket.sendall(b"PING")
-                response = self.socket.recv(1024)
-                print(f"Received response: {response}")
-                return response == b"PONG"
-        except Exception as e:
-            print(f"Connection check failed: {e}")
+                return self.socket.recv(1024) == b"PONG"
+        except:
             return False
 
     def check_new_downloads(self):

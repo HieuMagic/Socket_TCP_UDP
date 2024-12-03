@@ -1,0 +1,4 @@
+File1.zip 5MB
+File2.zip 10MB
+File3.zip 20MB
+File4.zip 50MB
